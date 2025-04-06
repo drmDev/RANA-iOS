@@ -30,11 +30,6 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		4476F8AA2DA320BD0024210D /* RANA */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = RANA;
-			sourceTree = "<group>";
-		};
 		4476F8B82DA320C00024210D /* RANATests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RANATests;
@@ -43,6 +38,11 @@
 		4476F8C22DA320C00024210D /* RANAUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = RANAUITests;
+			sourceTree = "<group>";
+		};
+		4476F8E72DA33B1F0024210D /* RANA */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = RANA;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,10 +75,10 @@
 		4476F89F2DA320BD0024210D = {
 			isa = PBXGroup;
 			children = (
-				4476F8AA2DA320BD0024210D /* RANA */,
 				4476F8B82DA320C00024210D /* RANATests */,
 				4476F8C22DA320C00024210D /* RANAUITests */,
 				4476F8A92DA320BD0024210D /* Products */,
+				4476F8E72DA33B1F0024210D /* RANA */,
 			);
 			sourceTree = "<group>";
 		};
@@ -108,7 +108,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				4476F8AA2DA320BD0024210D /* RANA */,
+				4476F8E72DA33B1F0024210D /* RANA */,
 			);
 			name = RANA;
 			packageProductDependencies = (
@@ -395,8 +395,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BNCYT8M26L;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to set your starting point for route optimization.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -422,8 +425,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = BNCYT8M26L;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "We need your location to set your starting point for route optimization.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
