@@ -15,6 +15,9 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     // Core location manager instance that provides location data
     private let locationManager = CLLocationManager()
     
+    // For testing purposes only
+    internal var geocoder: CLGeocoder = CLGeocoder()
+    
     // @Published properties automatically notify observers (SwiftUI views) when changed
     // This enables automatic UI updates whenever these values change
     @Published var currentAddress: String = ""  // The user's current address as text
@@ -58,7 +61,6 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         }
         
         // Convert GPS coordinates to human-readable address (reverse geocoding)
-        let geocoder = CLGeocoder()
         geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
             // Switch to main thread for UI updates
             DispatchQueue.main.async {

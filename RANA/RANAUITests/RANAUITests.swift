@@ -1,4 +1,3 @@
-//
 //  RANAUITests.swift
 //  RANAUITests
 //
@@ -8,34 +7,48 @@
 import XCTest
 
 final class RANAUITests: XCTestCase {
-
+    let app = XCUIApplication()
+    
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
-    }
-
-    @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
+        XCUIDevice.shared.orientation = .portrait
         app.launch()
-
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
     }
-
-    @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
-        }
+    
+    func testBasicUIElements() throws {
+        // Verify main UI elements exist
+        XCTAssertTrue(app.staticTexts["RANA - Really Awesome Navigation App"].exists)
+        XCTAssertTrue(app.staticTexts["Starting Point"].exists)
+        XCTAssertTrue(app.staticTexts["Destinations"].exists)
+        
+        // Verify input fields exist
+        let sourceField = app.textFields.matching(identifier: "sourceAddressField").firstMatch
+        XCTAssertTrue(sourceField.exists, "Source address field should exist")
+        
+        XCTAssertTrue(app.textFields["Enter destination address"].exists)
+        
+        // Verify buttons exist
+        let locationButton = app.buttons.matching(identifier: "currentLocationButton").firstMatch
+        XCTAssertTrue(locationButton.exists, "Current location button should exist")
+        
+        XCTAssertTrue(app.buttons["Add Destination"].exists)
+        XCTAssertTrue(app.buttons["Optimize Route"].exists)
+    }
+    
+    func testAddDestination() throws {
+        // Count initial number of destination fields
+        let initialCount = app.textFields.matching(identifier: "Enter destination address").count
+        
+        // Tap add destination button
+        app.buttons["Add Destination"].tap()
+        
+        // Verify a new destination field was added
+        let newCount = app.textFields.matching(identifier: "Enter destination address").count
+        XCTAssertEqual(newCount, initialCount + 1)
+    }
+    
+    override func tearDownWithError() throws {
+        // Reset orientation back to portrait at the end of tests
+        XCUIDevice.shared.orientation = .portrait
     }
 }

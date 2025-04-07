@@ -43,7 +43,8 @@ struct MainView: View {
                     // Text field for manual address entry
                     TextField("Enter starting address", text: $sourceAddress)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .autocorrectionDisabled(true) // Add this line
+                        .autocorrectionDisabled(true)
+                        .accessibilityIdentifier("sourceAddressField")
                     
                     // Current Location Button with loading indicator
                     Button(action: {
@@ -65,6 +66,7 @@ struct MainView: View {
                         }
                         .foregroundColor(.blue)
                     }
+                    .accessibilityIdentifier("currentLocationButton")
                     
                     // Display any location errors
                     if let error = locationManager.lastError {
