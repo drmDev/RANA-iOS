@@ -17,7 +17,6 @@ final class RANAUITests: XCTestCase {
     
     func testBasicUIElements() throws {
         // Verify main UI elements exist
-        XCTAssertTrue(app.staticTexts["RANA - Really Awesome Navigation App"].exists)
         XCTAssertTrue(app.staticTexts["Starting Point"].exists)
         XCTAssertTrue(app.staticTexts["Destinations"].exists)
         

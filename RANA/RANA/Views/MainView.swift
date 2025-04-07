@@ -15,10 +15,13 @@ struct MainView: View {
     @StateObject private var addressSearchService = AddressSearchService()
     
     // @State properties trigger view updates when changed
+    @State private var isLoading = false
     @State private var sourceAddress: String = ""
     @State private var destinations: [String] = [""] // Start with one empty destination
     @State private var showSourceSuggestions: Bool = false
     @State private var showDestinationSuggestions: [Bool] = [false] // Track for each destination
+    @State private var optimizedRoute: OptimizedRoute?
+    @State private var showingResults = false
     
     var body: some View {
         ScrollView {
@@ -31,11 +34,6 @@ struct MainView: View {
                         .scaledToFit()
                         .frame(height: 80)
                 }
-                
-                // Title section
-                Text("RANA - Really Awesome Navigation App")
-                    .font(.largeTitle)
-                    .padding(.top, 4)
                                 
                 // Source Address Section
                 VStack(alignment: .leading) {
@@ -229,18 +227,16 @@ struct MainView: View {
                 }
                 
                 // Optimize Route Button - main action button
-                Button(action: {
-                    optimizeRoute()
-                }) {
+                Button(action: optimizeRoute) {
                     Text("Optimize Route")
-                        .font(.headline)
-                        .foregroundColor(.white)
                         .padding()
                         .frame(maxWidth: .infinity)
                         .background(Color.blue)
+                        .foregroundColor(.white)
                         .cornerRadius(10)
                 }
                 .padding(.horizontal)
+                .disabled(sourceAddress.isEmpty || destinations.isEmpty || destinations[0].isEmpty)
                 
                 Spacer()
             } // End of VStack
@@ -263,30 +259,173 @@ struct MainView: View {
         .onChange(of: locationManager.currentAddress) { _, newAddress in
             sourceAddress = newAddress
         }
+        
+        .sheet(isPresented: $showingResults) {
+            if let route = optimizedRoute {
+                RouteResultsView(optimizedRoute: route, isPresented: $showingResults)
+            }
+        }
+        
+        .overlay(
+            Group {
+                if isLoading {
+                    ZStack {
+                        Color.black.opacity(0.7)  // Darker background for better contrast
+                            .edgesIgnoringSafeArea(.all)
+                        
+                        VStack {
+                            ProgressView()
+                                .scaleEffect(1.5)
+                                .padding()
+                                .tint(Color.white)  // Ensure spinner is white
+                            
+                            Text("Optimizing route...")
+                                .foregroundColor(.white)
+                                .font(.headline)
+                                .padding(.top, 8)
+                        }
+                        .padding(30)
+                        .background(Color.blue.opacity(0.8))  // Blue background for the loading box
+                        .cornerRadius(10)
+                    }
+                }
+            }
+        )
+    }
+    
+    func optimizeRoute() {
+        print("⏱️ Starting route optimization process")
+        
+        // Validate we have source and at least one destination
+        guard !sourceAddress.isEmpty, !destinations.isEmpty, !destinations[0].isEmpty else {
+            print("❌ Missing source or destination addresses")
+            return
+        }
+        
+        print("📍 Source: \(sourceAddress)")
+        print("📍 Destinations: \(destinations.filter { !$0.isEmpty })")
+        
+        // Show loading indicator
+        isLoading = true
+        
+        // Add timeout
+        let timeoutSeconds: Double = 30
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeoutSeconds) {
+            if self.isLoading {
+                print("⚠️ TIMEOUT: Route optimization process took too long")
+                self.isLoading = false
+                self.showAlert(title: "Timeout Error",
+                              message: "The route optimization process took too long. Please try again with fewer destinations or check your internet connection.")
+            }
+        }
+        
+        // SIMPLIFIED APPROACH: Process one address at a time
+        geocodeAddressSequentially()
+    }
+
+    // New function to handle sequential geocoding
+    func geocodeAddressSequentially() {
+        var allLocations: [Location] = []
+        var currentIndex = -1 // Start with -1 to represent source address
+        let allAddresses = [sourceAddress] + destinations.filter { !$0.isEmpty }
+        
+        func processNextAddress() {
+            currentIndex += 1
+            
+            // Check if we've processed all addresses
+            if currentIndex >= allAddresses.count {
+                print("✅ All addresses geocoded successfully")
+                completeOptimization(locations: allLocations)
+                return
+            }
+            
+            let address = allAddresses[currentIndex]
+            print("🔍 Geocoding address \(currentIndex): \(address)")
+            
+            let geocoder = CLGeocoder()
+            geocoder.geocodeAddressString(address) { placemarks, error in
+                if let error = error {
+                    print("❌ Error geocoding address \(currentIndex): \(error.localizedDescription)")
+                    // Continue with next address instead of failing completely
+                    DispatchQueue.main.async {
+                        self.showAlert(title: "Geocoding Warning",
+                                      message: "Couldn't find location for: \(address). Skipping this address.")
+                        processNextAddress()
+                    }
+                    return
+                }
+                
+                guard let placemark = placemarks?.first, let location = placemark.location else {
+                    print("⚠️ No location found for address \(currentIndex)")
+                    DispatchQueue.main.async {
+                        processNextAddress()
+                    }
+                    return
+                }
+                
+                let loc = Location(address: address, coordinate: location.coordinate)
+                print("📌 Address \(currentIndex) geocoded: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+                allLocations.append(loc)
+                
+                // Wait a moment before processing next address to avoid rate limiting
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    processNextAddress()
+                }
+            }
+        }
+        
+        // Start the sequential processing
+        processNextAddress()
+    }
+
+    // Function to complete the optimization once geocoding is done
+    func completeOptimization(locations: [Location]) {
+        guard locations.count >= 2 else {
+            print("❌ Not enough valid locations to optimize")
+            isLoading = false
+            showAlert(title: "Error", message: "Need at least a source and one destination to optimize route.")
+            return
+        }
+        
+        let source = locations[0]
+        let destinations = Array(locations.dropFirst())
+        
+        print("🧮 Starting route optimization with \(destinations.count) destinations")
+        
+        // Optimize route
+        let optimizer = RouteOptimizer()
+        let optimizedDestinations = optimizer.optimizeRoute(start: source, destinations: destinations)
+        
+        print("✅ Route optimization complete")
+        print("📊 Optimized route: \(optimizedDestinations.map { $0.address })")
+        
+        // Create route object
+        self.optimizedRoute = OptimizedRoute(
+            startLocation: source,
+            destinations: Array(optimizedDestinations.dropFirst())
+        )
+        
+        print("🎯 Showing results view")
+        self.isLoading = false
+        self.showingResults = true
+    }
+
+    // Add this helper function for showing alerts
+    func showAlert(title: String, message: String) {
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        
+        // Get the current window scene
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(alert, animated: true)
+        }
     }
     
     // Helper function to show alerts
     // Currently just prints to console, but could be expanded to show UI alerts
     private func showAlert(_ message: String) {
         print(message) // For now, just printing to console
-    }
-    
-    // Function to handle route optimization
-    // Currently demonstrates collecting all addresses for processing
-    // Will be expanded to integrate with routing algorithms
-    private func optimizeRoute() {
-        var routeMessage = "Current Addresses:\n\n"
-        
-        if sourceAddress.isEmpty && destinations.allSatisfy({ $0.isEmpty }) {
-            routeMessage = "No addresses entered yet"
-        } else {
-            routeMessage += "Starting Point: \(sourceAddress)\n\n"
-            for (index, destination) in destinations.enumerated() {
-                routeMessage += "Destination \(index + 1): \(destination)\n"
-            }
-        }
-        
-        print(routeMessage) // For now, just printing to console
     }
 }
 

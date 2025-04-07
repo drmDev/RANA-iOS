@@ -9,52 +9,77 @@ import CoreLocation
 class RouteOptimizer {
     
     func optimizeRoute(start: Location, destinations: [Location]) -> [Location] {
+        print("🧮 RouteOptimizer: Starting optimization with \(destinations.count) destinations")
+        
         // 1. Generate initial route using Nearest Neighbor
+        print("🔄 RouteOptimizer: Running Nearest Neighbor algorithm")
         var route = nearestNeighborRoute(start: start, destinations: destinations)
+        print("✅ RouteOptimizer: Nearest Neighbor complete")
         
         // 2. Improve route using 2-Opt
+        print("🔄 RouteOptimizer: Running 2-Opt improvement")
         route = twoOptImprovement(route: route)
+        print("✅ RouteOptimizer: 2-Opt improvement complete")
         
         return route
     }
     
-    // Make this internal for testing
     func nearestNeighborRoute(start: Location, destinations: [Location]) -> [Location] {
         var route: [Location] = [start]
         var unvisited = destinations
         
+        print("📊 NearestNeighbor: Starting with \(unvisited.count) unvisited locations")
+        
         while !unvisited.isEmpty {
             let current = route.last!
-            if let (nextIndex, _) = findNearest(from: current, in: unvisited) {
+            if let (nextIndex, distance) = findNearest(from: current, in: unvisited) {
+                print("📏 NearestNeighbor: Found nearest point at \(String(format: "%.2f", distance)) km")
                 route.append(unvisited[nextIndex])
                 unvisited.remove(at: nextIndex)
+            } else {
+                print("⚠️ NearestNeighbor: Could not find nearest location")
+                break // Safety check
             }
         }
         
+        print("✅ NearestNeighbor: Route completed with \(route.count) points")
         return route
     }
     
-    // Make this internal for testing
     func twoOptImprovement(route: [Location]) -> [Location] {
         var improved = route
         var improvement = true
         var iterations = 0
         let maxIterations = 100 // Prevent infinite loops
         
+        print("🔄 2-Opt: Starting with route of \(route.count) points")
+        
         while improvement && iterations < maxIterations {
             improvement = false
             iterations += 1
+            
+            var swapsMade = 0
             
             for i in 0..<improved.count-2 {
                 for j in i+2..<improved.count {
                     if twoOptSwapImproves(route: improved, i: i, j: j) {
                         improved = twoOptSwap(route: improved, i: i, j: j)
                         improvement = true
+                        swapsMade += 1
                     }
                 }
             }
+            
+            print("🔄 2-Opt: Iteration \(iterations), made \(swapsMade) improvements")
+            
+            // Circuit breaker - if we're taking too long, just use what we have
+            if iterations >= 20 && improved.count > 10 {
+                print("⚠️ 2-Opt: Breaking early after \(iterations) iterations")
+                break
+            }
         }
         
+        print("✅ 2-Opt: Completed after \(iterations) iterations")
         return improved
     }
     
