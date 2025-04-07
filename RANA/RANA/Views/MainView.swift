@@ -7,6 +7,7 @@
 
 import SwiftUI
 import CoreLocation
+import UIKit
 
 struct MainView: View {
     // @StateObject manages the lifecycle of the LocationManager
@@ -20,11 +21,20 @@ struct MainView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Title section
-                Text("Route Optimizer")
-                    .font(.largeTitle)
-                    .padding(.top)
                 
+                // Icon section
+                if let iconImage = UIImage(named: "AppIcon60x60") ?? UIImage(named: "AppIcon") {
+                    Image(uiImage: iconImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 80)
+                }
+                
+                // Title section
+                Text("RANA - Really Awesome Navigation App")
+                    .font(.largeTitle)
+                    .padding(.top, 4)
+                                
                 // Source Address Section
                 VStack(alignment: .leading) {
                     Text("Starting Point")
@@ -37,6 +47,9 @@ struct MainView: View {
                     
                     // Current Location Button with loading indicator
                     Button(action: {
+                        // Clear the source address first to ensure UI updates
+                        sourceAddress = ""
+                        // Then request a new location
                         locationManager.requestLocation()
                     }) {
                         HStack {
@@ -131,9 +144,7 @@ struct MainView: View {
         // React to changes in location data
         // Updates the source address field when location is determined
         .onChange(of: locationManager.currentAddress) {
-            if !locationManager.currentAddress.isEmpty {
-                sourceAddress = locationManager.currentAddress
-            }
+            sourceAddress = locationManager.currentAddress
         }
     }
     

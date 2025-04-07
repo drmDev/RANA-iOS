@@ -28,11 +28,18 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest  // Request highest accuracy
     }
     
-    // Request location from the device
+    // In LocationManager.swift
     func requestLocation() {
         // Set state to updating
         isUpdating = true
         lastError = nil
+        
+        // Force a refresh by temporarily clearing the current address
+        // This ensures that even if the same address is found again,
+        // it will be treated as a new value
+        DispatchQueue.main.async {
+            self.currentAddress = ""
+        }
         
         // Request permission if not already granted
         locationManager.requestWhenInUseAuthorization()
