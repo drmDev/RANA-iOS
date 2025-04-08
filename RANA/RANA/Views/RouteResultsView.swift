@@ -2,173 +2,296 @@
 //  RouteResultsView.swift
 //  RANA
 //
-//  Created by Derek Monturo on 4/7/25.
-//
 
 import SwiftUI
 import CoreLocation
+import MapKit
 
 struct RouteResultsView: View {
     let optimizedRoute: OptimizedRoute
     @Binding var isPresented: Bool
+    @State private var showFullMap: Bool = false
     
     var body: some View {
         NavigationView {
-            VStack {
-                // Route summary header
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Image(systemName: "map")
-                            .font(.title2)
-                            .foregroundColor(.blue)
-                        
-                        Text("Optimized Route")
-                            .font(.headline)
-                        
-                        Spacer()
-                        
-                        // Total stats
-                        VStack(alignment: .trailing) {
-                            Text(optimizedRoute.formattedDistance())
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            
-                            Text(optimizedRoute.formattedTime())
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    // Map preview
+                    RouteMapView(
+                        startLocation: optimizedRoute.startLocation,
+                        destinations: optimizedRoute.destinations
+                    )
+                    .frame(height: 200)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    .shadow(radius: 3)
+                    
+                    // Show Full Map button
+                    Button(action: {
+                        showFullMap = true
+                    }) {
+                        HStack {
+                            Image(systemName: "map.fill")
+                            Text("Show Full Map")
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .foregroundColor(.blue)
+                        .cornerRadius(8)
                     }
                     .padding(.horizontal)
-                }
-                .padding(.vertical, 12)
-                .background(Color(.systemGray6))
-                
-                // Route list
-                List {
-                    // Starting point
-                    HStack(alignment: .top, spacing: 15) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 28, height: 28)
-                            
-                            Text("S")
-                                .font(.caption)
-                                .bold()
-                                .foregroundColor(.white)
-                        }
+                    
+                    // Route summary section
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Route Summary")
+                            .font(.headline)
                         
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Starting Point")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text("Total Distance")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Text(optimizedRoute.formattedDistance())
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                            }
                             
-                            Text(optimizedRoute.startLocation.address)
-                                .font(.body)
+                            Spacer()
+                            
+                            VStack(alignment: .trailing) {
+                                Text("Estimated Time")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Text(optimizedRoute.formattedTime())
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                            }
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding()
+                    .background(Color(.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(color: Color.black.opacity(0.1), radius: 5)
+                    .padding(.horizontal)
                     
-                    // Destinations
-                    ForEach(0..<optimizedRoute.destinations.count, id: \.self) { index in
-                        HStack(alignment: .top, spacing: 15) {
+                    // Route details section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Route Details")
+                            .font(.headline)
+                            .padding(.horizontal)
+                        
+                        // Starting point
+                        HStack(alignment: .top, spacing: 12) {
                             ZStack {
                                 Circle()
                                     .fill(Color.blue)
-                                    .frame(width: 28, height: 28)
+                                    .frame(width: 24, height: 24)
                                 
-                                Text("\(index + 1)")
+                                Text("S")
                                     .font(.caption)
-                                    .bold()
+                                    .fontWeight(.bold)
                                     .foregroundColor(.white)
                             }
                             
                             VStack(alignment: .leading, spacing: 4) {
-                                if index == 0 {
-                                    Text("First Stop")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                } else if index == optimizedRoute.destinations.count - 1 {
-                                    Text("Final Destination")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                } else {
-                                    Text("Stop \(index + 1)")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
+                                Text("Starting Point")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
                                 
-                                Text(optimizedRoute.destinations[index].address)
-                                    .font(.body)
+                                Text(optimizedRoute.startLocation.address)
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        .padding(.vertical, 4)
-                    }
-                }
-                
-                // Action buttons
-                HStack(spacing: 20) {
-                    Button(action: {
-                        isPresented = false
-                    }) {
-                        HStack {
-                            Image(systemName: "arrow.left")
-                            Text("Edit Route")
+                        .padding(.horizontal)
+                        
+                        // Destinations
+                        ForEach(0..<optimizedRoute.destinations.count, id: \.self) { index in
+                            HStack(alignment: .top, spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.red)
+                                        .frame(width: 24, height: 24)
+                                    
+                                    Text("\(index + 1)")
+                                        .font(.caption)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                }
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("Stop \(index + 1)")
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                    
+                                    Text(optimizedRoute.destinations[index].address)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .padding(.horizontal)
+                            
+                            // Add distance to next location if not the last destination
+                            if index < optimizedRoute.destinations.count - 1 {
+                                HStack {
+                                    Spacer()
+                                        .frame(width: 24)
+                                    
+                                    VStack {
+                                        Rectangle()
+                                            .fill(Color.gray.opacity(0.4))
+                                            .frame(width: 2, height: 20)
+                                        
+                                        Text(formatDistance(from: optimizedRoute.destinations[index].coordinate,
+                                                          to: optimizedRoute.destinations[index + 1].coordinate))
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 2)
+                                            .background(Color.gray.opacity(0.1))
+                                            .cornerRadius(4)
+                                        
+                                        Rectangle()
+                                            .fill(Color.gray.opacity(0.4))
+                                            .frame(width: 2, height: 20)
+                                    }
+                                    
+                                    Spacer()
+                                }
+                            }
                         }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color(.systemGray5))
-                        .foregroundColor(.primary)
-                        .cornerRadius(10)
                     }
+                    .padding(.vertical)
                     
-                    Button(action: {
-                        // We'll implement this in the next step
-                        openInMaps()
-                    }) {
-                        HStack {
-                            Image(systemName: "map.fill")
-                            Text("Open in Maps")
+                    // Navigation buttons section
+                    VStack(spacing: 12) {
+                        Button(action: {
+                            openInMaps()
+                        }) {
+                            HStack {
+                                Image(systemName: "map.fill")
+                                Text("Open in Maps")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
                         }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
+                        
+                        Button(action: {
+                            shareRoute()
+                        }) {
+                            HStack {
+                                Image(systemName: "square.and.arrow.up")
+                                Text("Share Route")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.gray.opacity(0.2))
+                            .foregroundColor(.primary)
+                            .cornerRadius(10)
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Optimized Route")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") {
+                        isPresented = false
                     }
                 }
-                .padding()
             }
-            .navigationBarTitle("Route Results", displayMode: .inline)
-            .navigationBarItems(trailing: Button("Done") {
-                isPresented = false
-            })
+            .sheet(isPresented: $showFullMap) {
+                FullMapView(optimizedRoute: optimizedRoute)
+            }
         }
     }
     
-    func openInMaps() {
-        // We'll implement this in the next step
-        print("Open in Maps tapped")
+    // Helper function to format distance between two coordinates
+    private func formatDistance(from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) -> String {
+        let fromLocation = CLLocation(latitude: from.latitude, longitude: from.longitude)
+        let toLocation = CLLocation(latitude: to.latitude, longitude: to.longitude)
+        
+        let distanceInMeters = fromLocation.distance(from: toLocation)
+        
+        if distanceInMeters < 1000 {
+            return "\(Int(distanceInMeters))m"
+        } else {
+            let distanceInKm = distanceInMeters / 1000
+            return String(format: "%.1f km", distanceInKm)
+        }
+    }
+    
+    // Open route in Maps app
+    private func openInMaps() {
+        // Start with the first destination
+        guard let firstDestination = optimizedRoute.destinations.first else { return }
+        
+        let placemark = MKPlacemark(coordinate: firstDestination.coordinate)
+        let mapItem = MKMapItem(placemark: placemark)
+        mapItem.name = "First Destination"
+        
+        // Option to navigate from current location
+        let launchOptions = [
+            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+        ]
+        
+        mapItem.openInMaps(launchOptions: launchOptions)
+    }
+    
+    // Share route details
+    private func shareRoute() {
+        var routeText = "Optimized Route:\n\n"
+        routeText += "Starting from: \(optimizedRoute.startLocation.address)\n\n"
+        
+        for (index, destination) in optimizedRoute.destinations.enumerated() {
+            routeText += "Stop \(index + 1): \(destination.address)\n"
+        }
+        
+        routeText += "\nTotal Distance: \(optimizedRoute.formattedDistance())\n"
+        routeText += "Estimated Time: \(optimizedRoute.formattedTime())"
+        
+        let activityVC = UIActivityViewController(
+            activityItems: [routeText],
+            applicationActivities: nil
+        )
+        
+        // Present the share sheet
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let rootViewController = windowScene.windows.first?.rootViewController {
+            rootViewController.present(activityVC, animated: true)
+        }
     }
 }
 
-struct RouteResultsView_Previews: PreviewProvider {
-    static var previews: some View {
-        // Create a sample route for preview
-        let start = Location(address: "1 Infinite Loop, Cupertino, CA", 
-                            coordinate: CLLocationCoordinate2D(latitude: 37.3346, longitude: -122.0090))
-        
-        let destinations = [
-            Location(address: "1600 Amphitheatre Parkway, Mountain View, CA", 
-                    coordinate: CLLocationCoordinate2D(latitude: 37.4220, longitude: -122.0841)),
-            Location(address: "1 Hacker Way, Menlo Park, CA", 
-                    coordinate: CLLocationCoordinate2D(latitude: 37.4852, longitude: -122.1484)),
-            Location(address: "2800 Sand Hill Road, Menlo Park, CA", 
-                    coordinate: CLLocationCoordinate2D(latitude: 37.4211, longitude: -122.2040))
-        ]
-        
-        let route = OptimizedRoute(startLocation: start, destinations: destinations)
-        
-        return RouteResultsView(optimizedRoute: route, isPresented: .constant(true))
+// Full screen map view
+struct FullMapView: View {
+    let optimizedRoute: OptimizedRoute
+    @Environment(\.presentationMode) var presentationMode
+    
+    var body: some View {
+        NavigationView {
+            RouteMapView(
+                startLocation: optimizedRoute.startLocation,
+                destinations: optimizedRoute.destinations
+            )
+            .edgesIgnoringSafeArea(.all)
+            .navigationTitle("Route Map")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+            }
+        }
     }
 }
