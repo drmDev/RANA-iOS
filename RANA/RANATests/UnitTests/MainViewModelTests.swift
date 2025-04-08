@@ -1,4 +1,3 @@
-//
 //  MainViewModelTests.swift
 //  RANA
 //
@@ -6,6 +5,7 @@
 //
 import XCTest
 import Combine
+import MapKit
 @testable import RANA
 
 class MainViewModelTests: XCTestCase {
@@ -49,14 +49,11 @@ class MainViewModelTests: XCTestCase {
         // Verify state after adding
         XCTAssertEqual(viewModel.destinations.count, 2)
         XCTAssertEqual(viewModel.destinations[1], "")
-        XCTAssertEqual(viewModel.showDestinationSuggestions.count, 2)
-        XCTAssertFalse(viewModel.showDestinationSuggestions[1])
     }
     
     func testRemoveDestination() {
         // Setup initial state with multiple destinations
         viewModel.destinations = ["First", "Second", "Third"]
-        viewModel.showDestinationSuggestions = [false, true, false]
         
         // Remove middle destination
         viewModel.removeDestination(at: 1)
@@ -65,48 +62,99 @@ class MainViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.destinations.count, 2)
         XCTAssertEqual(viewModel.destinations[0], "First")
         XCTAssertEqual(viewModel.destinations[1], "Third")
-        XCTAssertEqual(viewModel.showDestinationSuggestions.count, 2)
     }
     
     func testHideAllSuggestions() {
-        // Setup state with visible suggestions
-        viewModel.showSourceSuggestions = true
-        viewModel.showDestinationSuggestions = [true, true]
+        // Setup state with a mock AddressSearchService
+        let mockAddressSearchService = MockAddressSearchService()
+        let testViewModel = MainViewModel(
+            locationManager: MockLocationManager(),
+            addressSearchService: mockAddressSearchService,
+            routeOptimizationService: MockRouteOptimizationService()
+        )
         
-        // Hide all suggestions
-        viewModel.hideAllSuggestions()
+        // Call hideAllSuggestions
+        testViewModel.hideAllSuggestions()
         
-        // Verify all suggestions are hidden
-        XCTAssertFalse(viewModel.showSourceSuggestions)
-        XCTAssertFalse(viewModel.showDestinationSuggestions[0])
-        XCTAssertFalse(viewModel.showDestinationSuggestions[1])
+        // Verify clearActiveSearch was called
+        XCTAssertTrue(mockAddressSearchService.clearActiveSearchCalled)
     }
     
     func testUpdateSourceQuery() {
+        // Setup state with a mock AddressSearchService
+        let mockAddressSearchService = MockAddressSearchService()
+        let testViewModel = MainViewModel(
+            locationManager: MockLocationManager(),
+            addressSearchService: mockAddressSearchService,
+            routeOptimizationService: MockRouteOptimizationService()
+        )
+        
         // Act
-        viewModel.updateSourceQuery("Test Query")
+        testViewModel.updateSourceQuery("Test Query")
         
         // Assert
-        XCTAssertTrue(viewModel.showSourceSuggestions)
-        
-        // All destination suggestions should be hidden
-        for isShowing in viewModel.showDestinationSuggestions {
-            XCTAssertFalse(isShowing)
-        }
+        XCTAssertTrue(mockAddressSearchService.searchCalled)
+        XCTAssertEqual(mockAddressSearchService.lastQuery, "Test Query")
+        XCTAssertEqual(mockAddressSearchService.lastSearchType, .source)
     }
     
     func testUpdateDestinationQuery() {
-        // Ensure we have enough elements in the array
-        viewModel.destinations = [""]
-        viewModel.showDestinationSuggestions = [false]
-        viewModel.showSourceSuggestions = true
+        // Setup state with a mock AddressSearchService
+        let mockAddressSearchService = MockAddressSearchService()
+        let testViewModel = MainViewModel(
+            locationManager: MockLocationManager(),
+            addressSearchService: mockAddressSearchService,
+            routeOptimizationService: MockRouteOptimizationService()
+        )
         
         // Act
-        viewModel.updateDestinationQuery("Test Destination", index: 0)
+        testViewModel.updateDestinationQuery("Test Destination", index: 2)
         
         // Assert
-        XCTAssertTrue(viewModel.showDestinationSuggestions[0])
-        XCTAssertFalse(viewModel.showSourceSuggestions)
+        XCTAssertTrue(mockAddressSearchService.searchCalled)
+        XCTAssertEqual(mockAddressSearchService.lastQuery, "Test Destination")
+        if case .destination(let index) = mockAddressSearchService.lastSearchType {
+            XCTAssertEqual(index, 2)
+        } else {
+            XCTFail("Expected destination search type")
+        }
+    }
+    
+    func testShowSourceSuggestions() {
+        // Setup
+        let mockResults = [MockLocalSearchCompletion(title: "Test", subtitle: "")]
+        let mockAddressSearchService = MockAddressSearchService(
+            mockResults: mockResults,
+            mockActiveType: .source
+        )
+        
+        let testViewModel = MainViewModel(
+            locationManager: MockLocationManager(),
+            addressSearchService: mockAddressSearchService,
+            routeOptimizationService: MockRouteOptimizationService()
+        )
+        
+        // Assert
+        XCTAssertTrue(testViewModel.showSourceSuggestions)
+    }
+
+    func testShowDestinationSuggestions() {
+        // Setup
+        let mockResults = [MockLocalSearchCompletion(title: "Test", subtitle: "")]
+        let mockAddressSearchService = MockAddressSearchService(
+            mockResults: mockResults,
+            mockActiveType: .destination(index: 1)
+        )
+        
+        let testViewModel = MainViewModel(
+            locationManager: MockLocationManager(),
+            addressSearchService: mockAddressSearchService,
+            routeOptimizationService: MockRouteOptimizationService()
+        )
+        
+        // Assert
+        XCTAssertTrue(testViewModel.showDestinationSuggestions(at: 1))
+        XCTAssertFalse(testViewModel.showDestinationSuggestions(at: 0))
     }
     
     // MARK: - Validation Tests
@@ -171,5 +219,72 @@ class MainViewModelTests: XCTestCase {
         
         // Verify loading is stopped
         XCTAssertFalse(viewModel.isLoading)
+    }
+}
+
+// MARK: - Mock Classes
+class MockAddressSearchService: AddressSearchService {
+    var mockSearchResults: [MKLocalSearchCompletion] = []
+    var mockActiveSearchType: AddressSearchService.SearchType? = nil
+    
+    var searchCalled = false
+    var clearActiveSearchCalled = false
+    var lastQuery = ""
+    var lastSearchType: AddressSearchService.SearchType? = nil
+    
+    // Initialize the mock with the desired state
+    init(mockResults: [MKLocalSearchCompletion] = [], mockActiveType: AddressSearchService.SearchType? = nil) {
+        super.init()
+        
+        // Use the property setter to set the initial values
+        // This works with @Published properties
+        self.searchResults = mockResults
+        self.activeSearchType = mockActiveType
+    }
+    
+    override func search(for query: String, type: AddressSearchService.SearchType) {
+        searchCalled = true
+        lastQuery = query
+        lastSearchType = type
+        
+        // Update the real properties
+        self.activeSearchType = type
+    }
+    
+    override func clearActiveSearch() {
+        clearActiveSearchCalled = true
+        super.clearActiveSearch()
+    }
+}
+
+// Mock LocationManager for testing
+class MockLocationManager: LocationManager {
+    override func requestLocation() {
+        // Do nothing in the mock
+    }
+}
+
+// Mock RouteOptimizationService for testing
+class MockRouteOptimizationService: RouteOptimizationService {
+    var optimizeRouteCalled = false
+    var cancelOptimizationCalled = false
+    var lastSourceAddress: String = ""
+    var lastDestinationAddresses: [String] = []
+    
+    // Match the exact signature from RouteOptimizationService
+    override func optimizeRoute(
+        sourceAddress: String,
+        destinationAddresses: [String],
+        completion: @escaping OptimizationCompletion
+    ) {
+        optimizeRouteCalled = true
+        lastSourceAddress = sourceAddress
+        lastDestinationAddresses = destinationAddresses
+        // Do nothing else in the mock
+    }
+    
+    override func cancelOptimization() {
+        cancelOptimizationCalled = true
+        // Do nothing else in the mock
     }
 }

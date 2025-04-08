@@ -38,37 +38,11 @@ struct MainView: View {
                         }
                     
                     // Source address suggestions
-                    if viewModel.showSourceSuggestions && !viewModel.sourceSearchResults.isEmpty {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 10) {
-                                ForEach(viewModel.sourceSearchResults, id: \.self) { result in
-                                    Button(action: {
-                                        viewModel.selectSourceAddress(result)
-                                    }) {
-                                        VStack(alignment: .leading) {
-                                            Text(result.title)
-                                                .font(.headline)
-                                            if !result.subtitle.isEmpty {
-                                                Text(result.subtitle)
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.gray)
-                                            }
-                                        }
-                                    }
-                                    .padding(.vertical, 5)
-                                    .foregroundColor(.primary)
-                                    
-                                    if result != viewModel.sourceSearchResults.last {
-                                        Divider()
-                                    }
-                                }
-                            }
-                            .padding()
-                            .background(Color(.systemBackground))
-                            .cornerRadius(10)
-                            .shadow(radius: 5)
-                        }
-                        .frame(height: min(CGFloat(viewModel.sourceSearchResults.count * 60), 250))
+                    if viewModel.showSourceSuggestions {
+                        SuggestionsList(
+                            results: viewModel.searchResults,
+                            onSelect: { result in viewModel.selectSourceAddress(result) }
+                        )
                     }
                     
                     // Current Location Button with loading indicator
@@ -126,40 +100,11 @@ struct MainView: View {
                             }
                             
                             // Destination suggestions
-                            if index < viewModel.showDestinationSuggestions.count &&
-                               viewModel.showDestinationSuggestions[index] &&
-                               !viewModel.destinationSearchResults.isEmpty &&
-                               viewModel.activeDestinationIndex == index {
-                                ScrollView {
-                                    VStack(alignment: .leading, spacing: 10) {
-                                        ForEach(viewModel.destinationSearchResults, id: \.self) { result in
-                                            Button(action: {
-                                                viewModel.selectDestinationAddress(result, index: index)
-                                            }) {
-                                                VStack(alignment: .leading) {
-                                                    Text(result.title)
-                                                        .font(.headline)
-                                                    if !result.subtitle.isEmpty {
-                                                        Text(result.subtitle)
-                                                            .font(.subheadline)
-                                                            .foregroundColor(.gray)
-                                                    }
-                                                }
-                                            }
-                                            .padding(.vertical, 5)
-                                            .foregroundColor(.primary)
-                                            
-                                            if result != viewModel.destinationSearchResults.last {
-                                                Divider()
-                                            }
-                                        }
-                                    }
-                                    .padding()
-                                    .background(Color(.systemBackground))
-                                    .cornerRadius(10)
-                                    .shadow(radius: 5)
-                                }
-                                .frame(height: min(CGFloat(viewModel.destinationSearchResults.count * 60), 250))
+                            if viewModel.showDestinationSuggestions(at: index) {
+                                SuggestionsList(
+                                    results: viewModel.searchResults,
+                                    onSelect: { result in viewModel.selectDestinationAddress(result, index: index) }
+                                )
                             }
                         }
                         .padding(.horizontal)
@@ -247,5 +192,42 @@ struct MainView: View {
                 dismissButton: alertItem.dismissButton
             )
         }
+    }
+}
+
+// Reusable component for displaying address suggestions
+struct SuggestionsList: View {
+    let results: [MKLocalSearchCompletion]
+    let onSelect: (MKLocalSearchCompletion) -> Void
+    
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(results, id: \.self) { result in
+                    Button(action: { onSelect(result) }) {
+                        VStack(alignment: .leading) {
+                            Text(result.title)
+                                .font(.headline)
+                            if !result.subtitle.isEmpty {
+                                Text(result.subtitle)
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                    .padding(.vertical, 5)
+                    .foregroundColor(.primary)
+                    
+                    if result != results.last {
+                        Divider()
+                    }
+                }
+            }
+            .padding()
+            .background(Color(.systemBackground))
+            .cornerRadius(10)
+            .shadow(radius: 5)
+        }
+        .frame(height: min(CGFloat(results.count * 60), 250))
     }
 }

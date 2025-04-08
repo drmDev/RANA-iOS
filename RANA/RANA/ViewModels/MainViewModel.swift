@@ -1,4 +1,3 @@
-//
 //  MainViewModel.swift
 //  RANA
 //
@@ -13,32 +12,51 @@ import MapKit
 
 class MainViewModel: ObservableObject {
     // Services
-    private let locationManager = LocationManager()
-    private let addressSearchService = AddressSearchService()
-    private let routeOptimizationService = RouteOptimizationService()
+    private var locationManager: LocationManager
+    private var addressSearchService: AddressSearchService
+    private var routeOptimizationService: RouteOptimizationService
+    private var cancellables = Set<AnyCancellable>()
     
     // Published properties for UI state
     @Published var sourceAddress: String = ""
     @Published var destinations: [String] = [""] // Start with one empty destination
-    @Published var showSourceSuggestions: Bool = false
-    @Published var showDestinationSuggestions: [Bool] = [false]
     @Published var isLoading: Bool = false
     @Published var optimizedRoute: OptimizedRoute?
     @Published var showingResults: Bool = false
     @Published var alertItem: AlertItem?
     
+    // Computed properties for UI state
+    var showSourceSuggestions: Bool {
+        if case .source = addressSearchService.activeSearchType, !addressSearchService.searchResults.isEmpty {
+            return true
+        }
+        return false
+    }
+    
+    func showDestinationSuggestions(at index: Int) -> Bool {
+        if case .destination(let activeIndex) = addressSearchService.activeSearchType,
+           activeIndex == index,
+           !addressSearchService.searchResults.isEmpty {
+            return true
+        }
+        return false
+    }
+    
     // Passthrough properties from services
-    var sourceSearchResults: [MKLocalSearchCompletion] { addressSearchService.sourceSearchResults }
-    var destinationSearchResults: [MKLocalSearchCompletion] { addressSearchService.destinationSearchResults }
-    var activeDestinationIndex: Int { addressSearchService.activeDestinationIndex }
+    var searchResults: [MKLocalSearchCompletion] { addressSearchService.searchResults }
     var isLocationUpdating: Bool { locationManager.isUpdating }
     var locationError: String? { locationManager.lastError }
-    
-    private var cancellables = Set<AnyCancellable>()
-    
-    init() {
+        
+    // Replace the existing init() function with this one
+    init(locationManager: LocationManager = LocationManager(),
+         addressSearchService: AddressSearchService = AddressSearchService(),
+         routeOptimizationService: RouteOptimizationService = RouteOptimizationService()) {
+        self.locationManager = locationManager
+        self.addressSearchService = addressSearchService
+        self.routeOptimizationService = routeOptimizationService
+        
         // Set up subscriptions to location manager
-        locationManager.$currentAddress
+        self.locationManager.$currentAddress
             .filter { !$0.isEmpty }
             .assign(to: \.sourceAddress, on: self)
             .store(in: &cancellables)
@@ -47,31 +65,11 @@ class MainViewModel: ObservableObject {
     // MARK: - Public Methods
     
     func updateSourceQuery(_ query: String) {
-        addressSearchService.updateSourceQuery(query)
-        showSourceSuggestions = !query.isEmpty
-        
-        // Hide destination suggestions
-        for index in 0..<showDestinationSuggestions.count {
-            showDestinationSuggestions[index] = false
-        }
+        addressSearchService.search(for: query, type: .source)
     }
     
     func updateDestinationQuery(_ query: String, index: Int) {
-        // Ensure array has enough elements
-        while showDestinationSuggestions.count <= index {
-            showDestinationSuggestions.append(false)
-        }
-        
-        addressSearchService.updateDestinationQuery(query, index: index)
-        showDestinationSuggestions[index] = !query.isEmpty
-        
-        // Hide source suggestions
-        showSourceSuggestions = false
-        
-        // Hide other destination suggestions
-        for i in 0..<showDestinationSuggestions.count where i != index {
-            showDestinationSuggestions[i] = false
-        }
+        addressSearchService.search(for: query, type: .destination(index: index))
     }
     
     // Method to call when view appears
@@ -83,40 +81,34 @@ class MainViewModel: ObservableObject {
     func useCurrentLocation() {
         // Clear the source address first
         sourceAddress = ""
-        showSourceSuggestions = false
         // Request location
         locationManager.requestLocation()
     }
     
     func selectSourceAddress(_ searchResult: MKLocalSearchCompletion) {
         sourceAddress = addressSearchService.getFormattedAddress(from: searchResult)
-        showSourceSuggestions = false
+        // Explicitly clear active search to fix the double-tap issue
+        addressSearchService.clearActiveSearch()
     }
     
     func selectDestinationAddress(_ searchResult: MKLocalSearchCompletion, index: Int) {
         destinations[index] = addressSearchService.getFormattedAddress(from: searchResult)
-        showDestinationSuggestions[index] = false
+        // Explicitly clear active search to fix the double-tap issue
+        addressSearchService.clearActiveSearch()
     }
     
     func addDestination() {
         destinations.append("")
-        showDestinationSuggestions.append(false)
     }
     
     func removeDestination(at index: Int) {
         if destinations.count > 1 {
             destinations.remove(at: index)
-            if index < showDestinationSuggestions.count {
-                showDestinationSuggestions.remove(at: index)
-            }
         }
     }
     
     func hideAllSuggestions() {
-        showSourceSuggestions = false
-        for index in 0..<showDestinationSuggestions.count {
-            showDestinationSuggestions[index] = false
-        }
+        addressSearchService.clearActiveSearch()
     }
     
     func optimizeRoute() {

@@ -1,4 +1,3 @@
-//
 //  AddressSearchService.swift
 //  RANA
 //
@@ -6,56 +5,51 @@
 //
 
 import MapKit
-import SwiftUI
+import Combine
 
 class AddressSearchService: NSObject, ObservableObject {
-    @Published var sourceSearchResults: [MKLocalSearchCompletion] = []
-    @Published var destinationSearchResults: [MKLocalSearchCompletion] = []
+    // Published properties
+    @Published var searchResults: [MKLocalSearchCompletion] = []
     @Published var isSearching: Bool = false
-    @Published var activeField: SearchField? = nil
+    @Published var activeSearchType: SearchType? = nil
     @Published var activeDestinationIndex: Int = 0
     
-    private var sourceCompleter = MKLocalSearchCompleter()
-    private var destinationCompleter = MKLocalSearchCompleter()
+    // Single completer instance for all searches
+    private var searchCompleter = MKLocalSearchCompleter()
+    private var searchTimer: Timer?
     
-    enum SearchField {
+    // Enum to track which field is being searched
+    enum SearchType: Equatable {
         case source
-        case destination(Int)
+        case destination(index: Int)
     }
     
     override init() {
         super.init()
-        
-        // Set up source completer
-        sourceCompleter.delegate = self
-        sourceCompleter.resultTypes = [.address, .pointOfInterest]
-        
-        // Set up destination completer
-        destinationCompleter.delegate = self
-        destinationCompleter.resultTypes = [.address, .pointOfInterest]
+        searchCompleter.delegate = self
+        searchCompleter.resultTypes = [.address, .pointOfInterest]
     }
     
-    func updateSourceQuery(_ query: String) {
-        if query.isEmpty {
-            sourceSearchResults = []
+    func search(for query: String, type: SearchType) {
+        // Clear results if query is empty
+        guard !query.isEmpty else {
+            searchResults = []
+            activeSearchType = nil
             return
         }
         
-        isSearching = true
-        sourceCompleter.queryFragment = query
-        activeField = .source
-    }
-    
-    func updateDestinationQuery(_ query: String, index: Int) {
-        if query.isEmpty {
-            destinationSearchResults = []
-            return
+        // Set active search context
+        activeSearchType = type
+        if case .destination(let index) = type {
+            activeDestinationIndex = index
         }
         
-        isSearching = true
-        destinationCompleter.queryFragment = query
-        activeField = .destination(index)
-        activeDestinationIndex = index
+        // Add debouncing to prevent excessive API calls
+        searchTimer?.invalidate()
+        searchTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            self?.isSearching = true
+            self?.searchCompleter.queryFragment = query
+        }
     }
     
     // Helper to get a formatted address string from a search result
@@ -80,6 +74,12 @@ class AddressSearchService: NSObject, ObservableObject {
             completionHandler(mapItem.placemark)
         }
     }
+    
+    // Clear active search state
+    func clearActiveSearch() {
+        activeSearchType = nil
+        searchResults = []
+    }
 }
 
 // MARK: - MKLocalSearchCompleterDelegate
@@ -87,13 +87,7 @@ extension AddressSearchService: MKLocalSearchCompleterDelegate {
     func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
         DispatchQueue.main.async {
             self.isSearching = false
-            
-            // Update the appropriate results array based on which completer is reporting
-            if completer === self.sourceCompleter {
-                self.sourceSearchResults = completer.results
-            } else if completer === self.destinationCompleter {
-                self.destinationSearchResults = completer.results
-            }
+            self.searchResults = completer.results
         }
     }
     

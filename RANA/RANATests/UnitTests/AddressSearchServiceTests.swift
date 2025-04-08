@@ -1,12 +1,3 @@
-//
-//  AddressSearchServiceTests.swift
-//  RANA
-//
-//  Created by Derek Monturo on 4/6/25.
-//
-
-
-//
 //  AddressSearchServiceTests.swift
 //  RANATests
 //
@@ -25,72 +16,83 @@ final class AddressSearchServiceTests: XCTestCase {
         let service = AddressSearchService()
         
         // Assert
-        XCTAssertTrue(service.sourceSearchResults.isEmpty)
-        XCTAssertTrue(service.destinationSearchResults.isEmpty)
+        XCTAssertTrue(service.searchResults.isEmpty)
         XCTAssertFalse(service.isSearching)
-        XCTAssertNil(service.activeField)
+        XCTAssertNil(service.activeSearchType)
         XCTAssertEqual(service.activeDestinationIndex, 0)
     }
     
-    // Test updating source query with empty string
-    func testUpdateSourceQueryWithEmptyString() {
+    // Test searching with empty string
+    func testSearchWithEmptyString() {
         // Arrange
         let service = AddressSearchService()
         
         // Act
-        service.updateSourceQuery("")
+        service.search(for: "", type: .source)
         
         // Assert
-        XCTAssertTrue(service.sourceSearchResults.isEmpty)
+        XCTAssertTrue(service.searchResults.isEmpty)
+        XCTAssertNil(service.activeSearchType)
         XCTAssertFalse(service.isSearching)
     }
     
-    // Test updating source query with non-empty string
-    func testUpdateSourceQueryWithNonEmptyString() {
+    func testSearchForSourceWithNonEmptyString() {
         // Arrange
         let service = AddressSearchService()
         
-        // Act
-        service.updateSourceQuery("San Francisco")
+        // Create expectations
+        let searchStateExpectation = XCTestExpectation(description: "Search state changes to true")
         
-        // Assert
-        XCTAssertTrue(service.isSearching)
-        if case .source = service.activeField {
-            XCTAssertTrue(true) // Pass if activeField is .source
-        } else {
-            XCTFail("activeField should be .source")
-        }
+        // Monitor the isSearching property for changes
+        let cancellable = service.$isSearching
+            .dropFirst() // Skip initial value
+            .sink { isSearching in
+                if isSearching {
+                    searchStateExpectation.fulfill()
+                }
+            }
+        
+        // Act
+        service.search(for: "San Francisco", type: .source)
+        
+        // Assert type is set immediately
+        XCTAssertEqual(service.activeSearchType, .source, "Active search type should be set to source immediately")
+        
+        // Wait for isSearching to become true (with a longer timeout for reliability)
+        wait(for: [searchStateExpectation], timeout: 2.0)
+        
+        // Verify final state
+        XCTAssertTrue(service.isSearching, "isSearching should be true after debounce")
+        
+        // Clean up
+        cancellable.cancel()
     }
     
-    // Test updating destination query with empty string
-    func testUpdateDestinationQueryWithEmptyString() {
+    // Test searching for destination with non-empty string
+    func testSearchForDestinationWithNonEmptyString() {
         // Arrange
         let service = AddressSearchService()
         
         // Act
-        service.updateDestinationQuery("", index: 2)
+        service.search(for: "New York", type: .destination(index: 3))
         
         // Assert
-        XCTAssertTrue(service.destinationSearchResults.isEmpty)
-        XCTAssertFalse(service.isSearching)
-    }
-    
-    // Test updating destination query with non-empty string
-    func testUpdateDestinationQueryWithNonEmptyString() {
-        // Arrange
-        let service = AddressSearchService()
-        
-        // Act
-        service.updateDestinationQuery("New York", index: 3)
-        
-        // Assert
-        XCTAssertTrue(service.isSearching)
-        if case .destination(let index) = service.activeField {
+        if case .destination(let index) = service.activeSearchType {
             XCTAssertEqual(index, 3)
         } else {
-            XCTFail("activeField should be .destination(3)")
+            XCTFail("activeSearchType should be .destination(3)")
         }
         XCTAssertEqual(service.activeDestinationIndex, 3)
+        
+        // Wait for the debounce timer
+        let expectation = XCTestExpectation(description: "Debounce timer")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
+        
+        // Now isSearching should be true
+        XCTAssertTrue(service.isSearching)
     }
     
     // Test getFormattedAddress with title and subtitle
@@ -119,24 +121,30 @@ final class AddressSearchServiceTests: XCTestCase {
         XCTAssertEqual(formattedAddress, "San Francisco")
     }
     
-    // Test completer delegate methods - simpler approach
-    func testCompleterDelegateSimplified() {
+    // Test completer delegate methods
+    func testCompleterDidUpdateResults() {
         // Arrange
         let service = AddressSearchService()
+        let mockCompleter = MockLocalSearchCompleter()
         let mockResults = [
             MockLocalSearchCompletion(title: "Result 1", subtitle: "Subtitle 1"),
             MockLocalSearchCompletion(title: "Result 2", subtitle: "Subtitle 2")
         ]
+        mockCompleter.mockResults = mockResults
         
-        // Act - directly test the implementation logic
+        // Act
         service.isSearching = true
+        service.completerDidUpdateResults(mockCompleter)
         
-        // Simulate what would happen in the completerDidUpdateResults method
-        service.sourceSearchResults = mockResults
-        service.isSearching = false
+        // Wait for async operations
+        let expectation = XCTestExpectation(description: "Results updated")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            expectation.fulfill()
+        }
+        wait(for: [expectation], timeout: 1.0)
         
         // Assert
-        XCTAssertEqual(service.sourceSearchResults.count, 2)
+        XCTAssertEqual(service.searchResults.count, 2)
         XCTAssertFalse(service.isSearching)
     }
         
@@ -159,6 +167,23 @@ final class AddressSearchServiceTests: XCTestCase {
         
         // Assert
         XCTAssertFalse(service.isSearching)
+    }
+    
+    // Test clearActiveSearch
+    func testClearActiveSearch() {
+        // Arrange
+        let service = AddressSearchService()
+        service.search(for: "Test", type: .source)
+        
+        // Simulate search results
+        service.searchResults = [MockLocalSearchCompletion(title: "Test Result", subtitle: "")]
+        
+        // Act
+        service.clearActiveSearch()
+        
+        // Assert
+        XCTAssertNil(service.activeSearchType)
+        XCTAssertTrue(service.searchResults.isEmpty)
     }
 }
 
