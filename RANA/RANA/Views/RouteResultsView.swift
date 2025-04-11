@@ -334,17 +334,40 @@ struct RouteResultsView: View {
     }
     
     private func openInMaps() {
-        guard let firstDestination = optimizedRoute.destinations.first else { return }
+        // Ensure we have destinations
+        guard !optimizedRoute.destinations.isEmpty else { return }
         
-        let placemark = MKPlacemark(coordinate: firstDestination.coordinate)
-        let mapItem = MKMapItem(placemark: placemark)
-        mapItem.name = "First Destination"
+        // Create an array to hold all map items
+        var mapItems: [MKMapItem] = []
         
-        let launchOptions = [
-            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving
+        // Start with the current location as the starting point
+        let currentLocationMapItem = MKMapItem.forCurrentLocation()
+        
+        // Add all destinations as map items with proper labels
+        for (index, destination) in optimizedRoute.destinations.enumerated() {
+            let placemark = MKPlacemark(coordinate: destination.coordinate)
+            let mapItem = MKMapItem(placemark: placemark)
+            
+            // Create a meaningful label from the address
+            // Extract just the first part of the address for a cleaner label
+            let addressComponents = destination.address.components(separatedBy: ",")
+            let shortName = addressComponents.first?.trimmingCharacters(in: .whitespaces) ?? "Stop \(index + 1)"
+            
+            mapItem.name = "Stop \(index + 1): \(shortName)"
+            mapItems.append(mapItem)
+        }
+        
+        // Set up the launch options for directions
+        let launchOptions: [String: Any] = [
+            MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving,
+            MKLaunchOptionsShowsTrafficKey: true
         ]
         
-        mapItem.openInMaps(launchOptions: launchOptions)
+        // Open Maps with the entire route
+        MKMapItem.openMaps(
+            with: [currentLocationMapItem] + mapItems,
+            launchOptions: launchOptions
+        )
     }
     
     private func shareRoute() {
