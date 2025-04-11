@@ -317,11 +317,19 @@ struct RouteResultsView: View {
         
         let distanceInMeters = fromLocation.distance(from: toLocation)
         
-        if distanceInMeters < 1000 {
-            return "\(Int(distanceInMeters))m"
+        // Convert to miles
+        let distanceInMiles = distanceInMeters / 1609.34  // 1 mile = 1609.34 meters
+        
+        if distanceInMiles < 0.1 {
+            // Less than 0.1 miles, show in feet (1 mile = 5280 feet)
+            let feet = Int(distanceInMiles * 5280)
+            return "\(feet)ft"
+        } else if distanceInMiles < 10 {
+            // Less than 10 miles, show with decimal
+            return String(format: "%.1f mi", distanceInMiles)
         } else {
-            let distanceInKm = distanceInMeters / 1000
-            return String(format: "%.1f km", distanceInKm)
+            // More than 10 miles, show as integer
+            return String(format: "%.0f mi", distanceInMiles)
         }
     }
     

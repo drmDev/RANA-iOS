@@ -33,7 +33,8 @@ class RouteOptimizer {
         while !unvisited.isEmpty {
             let current = route.last!
             if let (nextIndex, distance) = findNearest(from: current, in: unvisited) {
-                print("📏 NearestNeighbor: Found nearest point at \(String(format: "%.2f", distance)) km")
+                let distanceInMiles = distance * 0.621371
+                print("📏 NearestNeighbor: Found nearest point at \(String(format: "%.2f", distanceInMiles)) mi")
                 route.append(unvisited[nextIndex])
                 unvisited.remove(at: nextIndex)
             } else {
